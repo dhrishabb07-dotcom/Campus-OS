@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -151,7 +150,7 @@ export function CommandPalette() {
             aria-modal="true"
             aria-label="Command palette"
           >
-            <PaletteContent commands={commands} onClose={close} />
+            <PaletteContent commands={commands} />
           </motion.div>
         </>
       )}
@@ -171,13 +170,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 
-function PaletteContent({
-  commands,
-  onClose,
-}: {
-  commands: Command[];
-  onClose: () => void;
-}) {
+function PaletteContent({ commands }: { commands: Command[] }) {
   const navCommands = commands.filter((c) => c.group === "navigate");
   const createCommands = commands.filter((c) => c.group === "create");
 

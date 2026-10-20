@@ -1,48 +1,90 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, Chrome, ArrowRight, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils/cn";
+import { createClient } from "@/lib/supabase/client";
+import {
+  getAppUrl,
+  isGoogleAuthEnabled,
+  isSupabaseConfigured,
+} from "@/lib/supabase/config";
+import { safeNextPath } from "@/lib/auth/redirect";
 
-/**
- * CampusOS Login Page
- *
- * Clean, minimal login form.
- * Two paths: Google OAuth (primary) + Magic Link email (secondary).
- * No heavy card decoration — the form IS the content.
- */
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
-  const [showMagicLink, setShowMagicLink] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const googleEnabled = isGoogleAuthEnabled();
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    // TODO: implement Supabase Google OAuth
-    setTimeout(() => setIsLoading(false), 1000);
-  };
+  function nextPath() {
+    return safeNextPath(new URLSearchParams(window.location.search).get("next"));
+  }
 
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setIsLoading(true);
-    // TODO: implement Supabase magic link
-    setTimeout(() => {
-      setIsLoading(false);
-      setMagicLinkSent(true);
-    }, 1000);
-  };
+  async function signIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+
+    if (!isSupabaseConfigured()) {
+      setError("Connect Supabase in .env.local before signing in.");
+      setBusy(false);
+      return;
+    }
+
+    const { error: authError } = await createClient().auth.signInWithPassword({
+      email,
+      password,
+    });
+    setBusy(false);
+
+    if (authError) {
+      setError(authError.message);
+      return;
+    }
+
+    router.replace(nextPath());
+    router.refresh();
+  }
+
+  async function signInWithGoogle() {
+    if (!googleEnabled) return;
+    setBusy(true);
+    setError("");
+
+    if (!isSupabaseConfigured()) {
+      setError("Connect Supabase in .env.local before signing in.");
+      setBusy(false);
+      return;
+    }
+
+    const { error: authError } = await createClient().auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo:
+          getAppUrl() +
+          "/auth/callback?next=" +
+          encodeURIComponent(nextPath()),
+      },
+    });
+
+    if (authError) {
+      setError(authError.message);
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="w-full max-w-sm">
-      {/* ── Heading ── */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)] leading-tight tracking-tight">
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-[var(--text-primary)]">
           Welcome back
         </h1>
         <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
@@ -50,126 +92,97 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* ── Magic link sent state ── */}
-      {magicLinkSent ? (
-        <div
-          className={cn(
-            "rounded-[var(--radius-DEFAULT)] border border-[var(--color-success-500)]/20",
-            "bg-[var(--color-success-50)] dark:bg-[var(--color-success-500)]/10",
-            "p-4 text-sm",
-          )}
-          role="alert"
-        >
-          <p className="font-medium text-[var(--color-success-700)] dark:text-[var(--color-success-500)]">
-            Check your inbox
-          </p>
-          <p className="mt-1 text-[var(--color-success-600)] dark:text-[var(--color-success-500)]/80">
-            We sent a sign-in link to <strong>{email}</strong>. It expires in 10
-            minutes.
-          </p>
-          <button
-            onClick={() => {
-              setMagicLinkSent(false);
-              setEmail("");
-            }}
-            className="mt-3 text-xs font-medium text-[var(--color-success-700)] dark:text-[var(--color-success-500)] underline underline-offset-2"
-          >
-            Use a different email
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-5">
-          {/* ── Google OAuth (primary) ── */}
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={handleGoogleSignIn}
-            disabled={isLoading}
-            className="w-full gap-3 font-medium"
-          >
-            {isLoading ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <GoogleIcon />
-            )}
-            Continue with Google
-          </Button>
-
-          {/* ── Divider ── */}
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs text-[var(--text-tertiary)] font-medium">
-              or
-            </span>
-            <Separator className="flex-1" />
-          </div>
-
-          {/* ── Magic link / email ── */}
-          {!showMagicLink ? (
-            <button
-              onClick={() => setShowMagicLink(true)}
-              className={cn(
-                "flex items-center justify-between w-full",
-                "h-10 px-4 rounded-[var(--radius-md)]",
-                "border border-[var(--border-default)] bg-transparent",
-                "text-sm text-[var(--text-secondary)]",
-                "hover:bg-[var(--interactive-bg-hover)] hover:text-[var(--text-primary)]",
-                "hover:border-[var(--border-strong)]",
-                "transition-colors duration-[var(--duration-small)]",
-                "focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-2",
-              )}
+      <div className="flex flex-col gap-5">
+        {googleEnabled ? (
+          <>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={signInWithGoogle}
+              disabled={busy}
+              className="w-full gap-3 font-medium"
             >
-              <span>Continue with email</span>
-              <ArrowRight className="size-4 text-[var(--text-tertiary)]" />
-            </button>
-          ) : (
-            <form onSubmit={handleMagicLink} className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="email">Email address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@university.edu"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                  autoFocus
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                disabled={!email || isLoading}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : null}
-                Send sign-in link
-              </Button>
-            </form>
-          )}
-        </div>
-      )}
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <GoogleIcon />}
+              Continue with Google
+            </Button>
+            <div className="flex items-center gap-3">
+              <Separator className="flex-1" />
+              <span className="text-xs font-medium text-[var(--text-tertiary)]">
+                or
+              </span>
+              <Separator className="flex-1" />
+            </div>
+          </>
+        ) : (
+          <p className="text-center text-xs text-[var(--text-tertiary)]">
+            Google sign-in isn’t configured yet. Continue with email and password.
+          </p>
+        )}
 
-      {/* ── Sign up link ── */}
+        <form onSubmit={signIn} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">Email address</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@university.edu"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+              disabled={busy}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+              disabled={busy}
+            />
+          </div>
+          <div className="text-right">
+            <Link
+              href="/forgot-password"
+              className="text-xs text-[var(--accent)] hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+          {error && (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={busy}
+            className="w-full"
+          >
+            {busy && <Loader2 className="size-4 animate-spin" />}
+            Sign in
+          </Button>
+        </form>
+      </div>
+
       <p className="mt-8 text-center text-xs text-[var(--text-tertiary)]">
         No account?{" "}
-        <a
+        <Link
           href="/signup"
-          className="font-medium text-[var(--accent)] hover:underline underline-offset-2 transition-colors"
+          className="font-medium text-[var(--accent)] hover:underline"
         >
           Create one free
-        </a>
+        </Link>
       </p>
     </div>
   );
 }
 
-/** Inline Google icon SVG — avoids an extra package */
 function GoogleIcon() {
   return (
     <svg

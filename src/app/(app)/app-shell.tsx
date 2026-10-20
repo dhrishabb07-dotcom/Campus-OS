@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils/cn";
  * App Shell — Client wrapper for the (app) route group.
  * Manages sidebar offset, keyboard shortcut registration, command palette.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, user }: { children: React.ReactNode; user?: { name: string; email: string } }) {
   const { isCollapsed } = useSidebar();
   const { open } = useCommandPalette();
 
@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-full min-h-screen">
       {/* Desktop Sidebar */}
-      <Sidebar />
+      <Sidebar user={user} />
 
       {/* Main Content Area — offset by sidebar width on desktop */}
       <div

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
   PanelLeftClose,
@@ -17,7 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,13 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils/cn";
-
-// Placeholder user — will be replaced by real auth data
-const MOCK_USER = {
-  name: "Rahul K.",
-  email: "rahul@campus.edu",
-  avatar: null as string | null,
-};
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 function getInitials(name: string): string {
   return name
@@ -51,9 +47,12 @@ function getInitials(name: string): string {
  * Collapsed state: icon-only with tooltips.
  * Active state: subtle bg + accent left border, NOT color change of icon.
  */
-export function Sidebar() {
+export function Sidebar({ user }: { user?: { name: string; email: string } }) {
   const { isCollapsed, toggle } = useSidebar();
   const pathname = usePathname();
+  const router = useRouter();
+  const displayUser = user ?? { name: "Demo student", email: "demo@campus.edu" };
+  async function signOut() { if (isSupabaseConfigured()) await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -255,11 +254,9 @@ export function Sidebar() {
                 aria-label="User menu"
               >
                 <Avatar className="size-7 shrink-0">
-                  {MOCK_USER.avatar && (
-                    <AvatarImage src={MOCK_USER.avatar} alt={MOCK_USER.name} />
-                  )}
+
                   <AvatarFallback className="text-xs">
-                    {getInitials(MOCK_USER.name)}
+                    {getInitials(displayUser.name)}
                   </AvatarFallback>
                 </Avatar>
                 <AnimatePresence initial={false}>
@@ -273,10 +270,10 @@ export function Sidebar() {
                       className="overflow-hidden whitespace-nowrap min-w-0"
                     >
                       <p className="text-xs font-medium text-[var(--text-primary)] truncate">
-                        {MOCK_USER.name}
+                        {displayUser.name}
                       </p>
                       <p className="text-xs text-[var(--text-tertiary)] truncate">
-                        {MOCK_USER.email}
+                        {displayUser.email}
                       </p>
                     </motion.div>
                   )}
@@ -296,7 +293,7 @@ export function Sidebar() {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem destructive>
+              <DropdownMenuItem destructive onSelect={(event) => { event.preventDefault(); void signOut(); }}>
                 <LogOut className="size-4" />
                 Sign out
               </DropdownMenuItem>

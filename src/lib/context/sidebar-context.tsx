@@ -3,9 +3,7 @@
 import {
   createContext,
   useContext,
-  useState,
-  useEffect,
-  useCallback,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -19,55 +17,28 @@ const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 const STORAGE_KEY = "campus-os:sidebar-collapsed";
 
+function readCollapsed() {
+  try { return localStorage.getItem(STORAGE_KEY) === "true"; } catch { return false; }
+}
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("campus-os:sidebar", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("campus-os:sidebar", callback);
+  };
+}
+function writeCollapsed(value: boolean) {
+  try { localStorage.setItem(STORAGE_KEY, String(value)); } catch { /* localStorage may be unavailable */ }
+  window.dispatchEvent(new Event("campus-os:sidebar"));
+}
+function toggleCollapsed() { writeCollapsed(!readCollapsed()); }
+function setCollapsedValue(value: boolean) { writeCollapsed(value); }
+
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  // Default to false (expanded). Read from localStorage after mount to avoid hydration mismatch.
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored !== null) {
-        setIsCollapsed(stored === "true");
-      }
-    } catch {
-      // localStorage unavailable — silently ignore
-    }
-  }, []);
-
-  const toggle = useCallback(() => {
-    setIsCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(STORAGE_KEY, String(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }, []);
-
-  const setCollapsed = useCallback((value: boolean) => {
-    setIsCollapsed(value);
-    try {
-      localStorage.setItem(STORAGE_KEY, String(value));
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // Suppress hydration mismatch — render with default until mounted
-  if (!mounted) {
-    return (
-      <SidebarContext.Provider value={{ isCollapsed: false, toggle, setCollapsed }}>
-        {children}
-      </SidebarContext.Provider>
-    );
-  }
-
+  const isCollapsed = useSyncExternalStore(subscribe, readCollapsed, () => false);
   return (
-    <SidebarContext.Provider value={{ isCollapsed, toggle, setCollapsed }}>
+    <SidebarContext.Provider value={{ isCollapsed, toggle: toggleCollapsed, setCollapsed: setCollapsedValue }}>
       {children}
     </SidebarContext.Provider>
   );

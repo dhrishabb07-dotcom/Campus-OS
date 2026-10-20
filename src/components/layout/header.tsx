@@ -2,7 +2,7 @@
 
 import { Search, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useCommandPalette } from "@/lib/context/command-palette-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,8 @@ interface HeaderProps {
   title: string;
 }
 
+const subscribeToMount = () => () => {};
+
 /**
  * CampusOS App Header
  *
@@ -27,10 +29,7 @@ interface HeaderProps {
 export function Header({ title }: HeaderProps) {
   const { open } = useCommandPalette();
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Avoid hydration mismatch for theme
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(subscribeToMount, () => true, () => false);
 
   const ThemeIcon = !mounted
     ? Monitor

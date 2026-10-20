@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Header } from "@/components/layout/header";
-import { CalendarDays } from "lucide-react";
-import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils/cn";
 
 export const metadata: Metadata = { title: "Schedule" };

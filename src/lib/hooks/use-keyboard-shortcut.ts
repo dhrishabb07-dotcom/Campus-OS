@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
 type KeyboardModifiers = {
   ctrl?: boolean;
@@ -41,7 +41,10 @@ export function useKeyboardShortcut(
     allowInInputs = false,
   } = options;
 
-  const stableHandler = useCallback(handler, [handler]);
+  const handlerRef = useRef(handler);
+  useEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
 
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
@@ -75,11 +78,11 @@ export function useKeyboardShortcut(
 
       if (keyMatches && (ctrl && meta ? cmdCtrlMatch : modifiersMatch)) {
         if (preventDefault) event.preventDefault();
-        stableHandler(event);
+        handlerRef.current(event);
       }
     };
 
     document.addEventListener("keydown", listener);
     return () => document.removeEventListener("keydown", listener);
-  }, [key, ctrl, meta, shift, alt, preventDefault, allowInInputs, stableHandler]);
+  }, [key, ctrl, meta, shift, alt, preventDefault, allowInInputs]);
 }

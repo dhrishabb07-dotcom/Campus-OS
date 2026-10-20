@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -18,7 +19,7 @@ export default function AuthLayout({
     <div className="min-h-screen flex flex-col bg-[var(--bg-subtle)]">
       {/* Minimal brand header */}
       <header className="flex items-center h-14 px-6 border-b border-[var(--border-subtle)] bg-[var(--bg-base)]">
-        <a
+        <Link
           href="/"
           className="flex items-center gap-2 focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-2 rounded-[var(--radius-sm)]"
           aria-label="CampusOS home"
@@ -32,7 +33,7 @@ export default function AuthLayout({
           <span className="text-sm font-semibold text-[var(--text-primary)] tracking-tight">
             CampusOS
           </span>
-        </a>
+        </Link>
       </header>
 
       {/* Auth content — vertically centered */}

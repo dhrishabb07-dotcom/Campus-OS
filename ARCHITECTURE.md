@@ -16,7 +16,7 @@ CampusOS utilizes a modern, server-first React architecture leveraging Next.js A
   - `(auth)`: Publicly accessible authentication routes (`/login`, `/signup`).
   - `(app)`: Protected application routes (dashboard, schedule, etc.). Wraps content in a layout with a sidebar and global command palette.
   - `(onboarding)`: Protected one-time setup routes for new users.
-- **Middleware for Auth Protection:** Supabase middleware intercepts all requests. It verifies the session and routes unauthenticated users to `/login`, authenticated users away from `(auth)` routes, and new users to `(onboarding)` if `current_semester_id` is missing.
+- **Proxy and server checks for auth protection:** The root proxy refreshes the cookie-backed Supabase session and redirects unauthenticated requests to `/login`. The protected app layout verifies the user and redirects students to `/setup` until their profile, current semester, and at least one subject are saved. RLS enforces record ownership in the database.
 
 ---
 
@@ -53,6 +53,8 @@ CampusOS utilizes a modern, server-first React architecture leveraging Next.js A
 The application relies on a normalized PostgreSQL database. 
 
 ### PostgreSQL Schema definition
+
+> This SQL is a future-state design sketch, not the schema currently deployed. The shipped Phase 2 schema is in supabase/migrations/20261020174924_phase_2_auth_onboarding.sql and uses semesters.is_current to select the current semester; it does not yet add current_semester_id to profiles.
 
 ```sql
 -- Enable UUID extension
@@ -342,13 +344,13 @@ CREATE TRIGGER on_auth_user_created
 
 ## 6. Authentication
 
-- **Provider:** Supabase Auth providing Email/Password and Google OAuth integrations.
+- **Provider:** Supabase Auth email/password is the current sign-in path. Google OAuth is optional and hidden until the provider is configured.
 - **Session Management:** `@supabase/ssr` client for secure, cookie-based session management.
-- **Routing Rules (Middleware):**
+- **Routing Rules (Proxy and server layouts):**
   - Unauthenticated → Redirect to `/login`.
   - Authenticated on `/login` or `/signup` → Redirect to `/dashboard`.
-  - Authenticated but missing `current_semester_id` → Redirect to `/setup` (Onboarding).
-- **Onboarding Flow:** After initial signup, users must complete a 3-step setup (University info → Add Semester → Add Subjects).
+  - Authenticated but missing university, degree, current semester, or subjects → Redirect to `/setup` (Onboarding).
+- **Onboarding Flow:** After initial signup, students enter university, degree, current semester, and subjects in one resumable setup form. Completion is saved by the `complete_onboarding` database function.
 
 ---
 
@@ -358,7 +360,7 @@ To maintain clean separation of concerns, database interactions are strictly sep
 
 - `lib/supabase/client.ts` — Browser-side client instance.
 - `lib/supabase/server.ts` — Server component client instance (read-only cookies).
-- `lib/supabase/middleware.ts` — Middleware client instance (read/write cookies).
+- `src/lib/supabase/proxy.ts` — Request-scoped proxy client for refreshing Supabase cookies.
 - `features/[feature]/queries.ts` — Select queries using Supabase server client.
 - `features/[feature]/mutations.ts` — Insert/Update/Delete operations (often client-side or server actions).
 - `features/[feature]/types.ts` — Feature-specific domain types.
@@ -423,7 +425,7 @@ To maintain clean separation of concerns, database interactions are strictly sep
 ## 13. Complete Folder Structure
 
 ```text
-├── middleware.ts                # Next.js middleware (auth route protection)
+├── proxy.ts                     # Next.js proxy (auth session refresh and early redirects)
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/             # Authentication routes (unprotected)
@@ -487,7 +489,7 @@ To maintain clean separation of concerns, database interactions are strictly sep
 │   │   ├── supabase/           # Supabase infrastructure
 │   │   │   ├── client.ts       # Browser client (createBrowserClient)
 │   │   │   ├── server.ts       # RSC client (createServerClient)
-│   │   │   └── middleware.ts   # Middleware client (updateSession)
+│   │   │   └── proxy.ts        # Proxy session refresh (updateSession)
 │   │   ├── validators/         # Zod schemas (Single source of truth)
 │   │   │   ├── auth.ts
 │   │   │   ├── profile.ts
